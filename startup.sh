@@ -12,9 +12,9 @@ echo "[startup] 모델 준비 시작 $(date)"
 MODEL_ROOT="/ComfyUI/models"
 if [ -d /runpod-volume ]; then
   VOL_MODELS="/runpod-volume/models"
-  mkdir -p "$VOL_MODELS/checkpoints" "$VOL_MODELS/controlnet" "$VOL_MODELS/clip_vision"
+  mkdir -p "$VOL_MODELS/checkpoints" "$VOL_MODELS/controlnet" "$VOL_MODELS/clip_vision" "$VOL_MODELS/ipadapter" "$VOL_MODELS/insightface" "$VOL_MODELS/facerestore_models"
   # 심볼릭 링크: ComfyUI 경로 → 볼륨
-  for sub in checkpoints controlnet clip_vision; do
+  for sub in checkpoints controlnet clip_vision ipadapter insightface facerestore_models; do
     if [ ! -L "$MODEL_ROOT/$sub" ] && [ -d "$MODEL_ROOT/$sub" ]; then
       rm -rf "$MODEL_ROOT/$sub"
     fi
@@ -49,6 +49,30 @@ fi
 if [ ! -f $MODEL_ROOT/clip_vision/CLIP-ViT-H-14-laion2B-s32B-b79K.safetensors ]; then
   echo "[startup] CLIP Vision 다운로드..."
   curl -sL -o $MODEL_ROOT/clip_vision/CLIP-ViT-H-14-laion2B-s32B-b79K.safetensors "https://huggingface.co/h94/IP-Adapter/resolve/main/models/image_encoder/model.safetensors" || true
+fi
+
+# ── 얼굴 유지(FaceID) + ReActor 모델 (재시작에도 볼륨에 보존) ──
+# IPAdapter FaceID 디렉토리
+mkdir -p $MODEL_ROOT/ipadapter
+# IPAdapter FaceID Plus v2 (SDXL)
+if [ ! -f $MODEL_ROOT/ipadapter/ip-adapter-faceid-plusv2_sdxl.bin ]; then
+  echo "[startup] IPAdapter FaceID 다운로드..."
+  curl -sL -o $MODEL_ROOT/ipadapter/ip-adapter-faceid-plusv2_sdxl.bin "https://huggingface.co/h94/IP-Adapter-FaceID/resolve/main/ip-adapter-faceid-plusv2_sdxl.bin" || true
+fi
+# IPAdapter FaceID lora
+if [ ! -f $MODEL_ROOT/ipadapter/ip-adapter-faceid-plusv2_sdxl_lora.safetensors ]; then
+  echo "[startup] IPAdapter FaceID lora 다운로드..."
+  curl -sL -o $MODEL_ROOT/ipadapter/ip-adapter-faceid-plusv2_sdxl_lora.safetensors "https://huggingface.co/h94/IP-Adapter-FaceID/resolve/main/ip-adapter-faceid-plusv2_sdxl_lora.safetensors" || true
+fi
+# ReActor — inswapper + GFPGAN (facerestore)
+mkdir -p $MODEL_ROOT/insightface $MODEL_ROOT/facerestore_models
+if [ ! -f $MODEL_ROOT/insightface/inswapper_128.onnx ]; then
+  echo "[startup] ReActor inswapper 다운로드..."
+  curl -sL -o $MODEL_ROOT/insightface/inswapper_128.onnx "https://huggingface.co/datasets/Gourieff/ReActor/resolve/main/models/inswapper_128.onnx" || true
+fi
+if [ ! -f $MODEL_ROOT/facerestore_models/GFPGANv1.4.pth ]; then
+  echo "[startup] GFPGAN 다운로드..."
+  curl -sL -o $MODEL_ROOT/facerestore_models/GFPGANv1.4.pth "https://github.com/TencentARC/GFPGAN/releases/download/v1.3.0/GFPGANv1.4.pth" || true
 fi
 
 echo "[startup] 모델 준비 완료"
