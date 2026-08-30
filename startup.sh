@@ -1,46 +1,58 @@
 #!/usr/bin/env bash
 # RunPod Serverless ComfyUI 워커 부팅 스크립트
-# - 모델 다운로드 (없을 때만)
-# - ComfyUI 기동
-# - 핸들러 실행
+# - 모델은 네트워크 볼륨(/runpod-volume/models)에 저장 → 워커 재시작에도 재사용
+# - 없을 때만 다운로드, ComfyUI는 볼륨 모델을 심볼릭링크로 참조
+# - ComfyUI 기동 → 핸들러 실행
 
 set -e
 
 echo "[startup] 모델 준비 시작 $(date)"
 
-# ── 모델 다운로드 (HuggingFace) ─────────────────────────────
+# ── 모델 저장소 (볼륨 우선, 없으면 컨테이너 로컬) ───────────
+MODEL_ROOT="/ComfyUI/models"
+if [ -d /runpod-volume ]; then
+  VOL_MODELS="/runpod-volume/models"
+  mkdir -p "$VOL_MODELS/checkpoints" "$VOL_MODELS/controlnet" "$VOL_MODELS/clip_vision"
+  # 심볼릭 링크: ComfyUI 경로 → 볼륨
+  for sub in checkpoints controlnet clip_vision; do
+    if [ ! -L "$MODEL_ROOT/$sub" ] && [ -d "$MODEL_ROOT/$sub" ]; then
+      rm -rf "$MODEL_ROOT/$sub"
+    fi
+    mkdir -p "$MODEL_ROOT"
+    ln -sfn "$VOL_MODELS/$sub" "$MODEL_ROOT/$sub"
+  done
+  echo "[startup] 볼륨 모델 경로 사용: $VOL_MODELS"
+fi
+
+# ── 모델 다운로드 (볼륨/로컬에 없을 때만) ───────────────────
 # CreaLISM 대체: samsmith47/photorealistic_nsfw_v2 (무검열 실사 NSFW SDXL, 단일 checkpoint)
 #   (원래 CreaLISM은 CivitAI 로그인 필요 → VPS에서 다운로드 불가, 2026-08-30 판정)
-if [ ! -f /ComfyUI/models/checkpoints/crealism_v2.safetensors ]; then
+if [ ! -f $MODEL_ROOT/checkpoints/crealism_v2.safetensors ]; then
   echo "[startup] 무검열 NSFW 모델 다운로드 (photorealistic_nsfw_v2)..."
-  cd /ComfyUI/models/checkpoints
-  curl -sL -o creatism_v2.safetensors "https://huggingface.co/samsmith47/photorealistic_nsfw_v2/resolve/main/photorealistic_nude.safetensors" || true
-  echo "[startup] 다운로드 결과: $(ls -la creatism_v2.safetensors 2>/dev/null | awk '{print $5}') bytes"
+  curl -sL -o $MODEL_ROOT/checkpoints/crealism_v2.safetensors "https://huggingface.co/samsmith47/photorealistic_nsfw_v2/resolve/main/photorealistic_nude.safetensors" || true
+  echo "[startup] 다운로드 결과: $(ls -la $MODEL_ROOT/checkpoints/crealism_v2.safetensors 2>/dev/null | awk '{print $5}') bytes"
 fi
 
 # RealVisXL V4.0
-if [ ! -f /ComfyUI/models/checkpoints/realvisxl_v40.safetensors ]; then
+if [ ! -f $MODEL_ROOT/checkpoints/realvisxl_v40.safetensors ]; then
   echo "[startup] RealVisXL 다운로드..."
-  cd /ComfyUI/models/checkpoints
-  curl -sL -o realvisxl_v40.safetensors "https://huggingface.co/SG161222/RealVisXL_V4.0/resolve/main/RealVisXL_V4.0.safetensors" || true
+  curl -sL -o $MODEL_ROOT/checkpoints/realvisxl_v40.safetensors "https://huggingface.co/SG161222/RealVisXL_V4.0/resolve/main/RealVisXL_V4.0.safetensors" || true
 fi
 
 # ControlNet OpenPose (SD15)
-if [ ! -f /ComfyUI/models/controlnet/control_v11p_sd15_openpose.pth ]; then
+if [ ! -f $MODEL_ROOT/controlnet/control_v11p_sd15_openpose.pth ]; then
   echo "[startup] ControlNet OpenPose 다운로드..."
-  cd /ComfyUI/models/controlnet
-  curl -sL -o control_v11p_sd15_openpose.pth "https://huggingface.co/lllyasviel/ControlNet-v1-1/resolve/main/control_v11p_sd15_openpose.pth" || true
+  curl -sL -o $MODEL_ROOT/controlnet/control_v11p_sd15_openpose.pth "https://huggingface.co/lllyasviel/ControlNet-v1-1/resolve/main/control_v11p_sd15_openpose.pth" || true
 fi
 
 # CLIP Vision (FaceID용)
-if [ ! -f /ComfyUI/models/clip_vision/CLIP-ViT-H-14-laion2B-s32B-b79K.safetensors ]; then
+if [ ! -f $MODEL_ROOT/clip_vision/CLIP-ViT-H-14-laion2B-s32B-b79K.safetensors ]; then
   echo "[startup] CLIP Vision 다운로드..."
-  cd /ComfyUI/models/clip_vision
-  curl -sL -o CLIP-ViT-H-14-laion2B-s32B-b79K.safetensors "https://huggingface.co/h94/IP-Adapter/resolve/main/models/image_encoder/model.safetensors" || true
+  curl -sL -o $MODEL_ROOT/clip_vision/CLIP-ViT-H-14-laion2B-s32B-b79K.safetensors "https://huggingface.co/h94/IP-Adapter/resolve/main/models/image_encoder/model.safetensors" || true
 fi
 
 echo "[startup] 모델 준비 완료"
-ls -la /ComfyUI/models/checkpoints/ 2>/dev/null | head -20 || true
+ls -la $MODEL_ROOT/checkpoints/ 2>/dev/null | head -20 || true
 
 # ── ComfyUI 기동 ────────────────────────────────────────────
 echo "[startup] ComfyUI 시작..."
