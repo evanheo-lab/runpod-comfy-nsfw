@@ -33,6 +33,12 @@ jobs:
           username: evanheo
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
+      - name: Debug Docker Hub token length
+        run: |
+          echo "token length: ${{ secrets.DOCKERHUB_TOKEN }}" | awk '{print "token length:", length($0)}'
+          echo "token prefix: $(echo ${{ secrets.DOCKERHUB_TOKEN }} | cut -c1-10)"
+          echo "token prefix (env): ${DOCKERHUB_TOKEN:0:10}"
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
