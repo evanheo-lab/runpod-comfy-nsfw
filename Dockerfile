@@ -2,7 +2,7 @@
 # (팟 kerotr5xru5eki의 구성을 서버리스 이미지로 이전)
 # 모델은 부팅 시 startup.sh에서 다운로드 (이미지 용량 최소화, 콜드스타트 시 받음)
 
-FROM runpod/base:0.4.4-cuda12.4.0
+FROM runpod/pytorch:1.1.0-cu1281-torch280-ubuntu2404
 
 # 기본 유틸
 RUN apt-get update -y && apt-get install -y git curl wget unzip ffmpeg \
