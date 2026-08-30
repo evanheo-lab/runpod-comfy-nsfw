@@ -32,6 +32,21 @@ if [ ! -f $MODEL_ROOT/checkpoints/realvisxl_v40.safetensors ]; then
   curl -sL -o $MODEL_ROOT/checkpoints/realvisxl_v40.safetensors "https://huggingface.co/SG161222/RealVisXL_V4.0/resolve/main/RealVisXL_V4.0.safetensors" || true
 fi
 
+# ── CreaLISM (NSFW 전용 SDXL) — 남성기·삽입 표현용 (2026-08-31 추가) ──
+# 출처: Civitai model 1836368 (Terra Mirabilis PhotoRealistic NSFW SDXL), v2.0
+# Civitai 토큰은 엔드포인트 env(CIVITAI_TOKEN)로 주입됨
+if [ ! -f $MODEL_ROOT/checkpoints/crealism_v2.safetensors ]; then
+  if [ -n "$CIVITAI_TOKEN" ]; then
+    echo "[startup] CreaLISM 다운로드 (Civitai, 6.7GB)..."
+    curl -sL -H "Authorization: Bearer $CIVITAI_TOKEN" \
+      -o $MODEL_ROOT/checkpoints/crealism_v2.safetensors \
+      "https://civitai.com/api/download/models/2237143?fileId=2130410" || true
+    echo "[startup] CreaLISM 결과: $(ls -la $MODEL_ROOT/checkpoints/crealism_v2.safetensors 2>/dev/null | awk '{print $5}') bytes"
+  else
+    echo "[startup] CIVITAI_TOKEN 없음 — CreaLISM 스킵"
+  fi
+fi
+
 # ControlNet OpenPose (SD15)
 if [ ! -f $MODEL_ROOT/controlnet/control_v11p_sd15_openpose.pth ]; then
   echo "[startup] ControlNet OpenPose 다운로드..."
