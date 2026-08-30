@@ -25,15 +25,8 @@ if [ -d /runpod-volume ]; then
 fi
 
 # ── 모델 다운로드 (볼륨/로컬에 없을 때만) ───────────────────
-# CreaLISM 대체: samsmith47/photorealistic_nsfw_v2 (무검열 실사 NSFW SDXL, 단일 checkpoint)
-#   (원래 CreaLISM은 CivitAI 로그인 필요 → VPS에서 다운로드 불가, 2026-08-30 판정)
-if [ ! -f $MODEL_ROOT/checkpoints/crealism_v2.safetensors ]; then
-  echo "[startup] 무검열 NSFW 모델 다운로드 (photorealistic_nsfw_v2)..."
-  curl -sL -o $MODEL_ROOT/checkpoints/crealism_v2.safetensors "https://huggingface.co/samsmith47/photorealistic_nsfw_v2/resolve/main/photorealistic_nude.safetensors" || true
-  echo "[startup] 다운로드 결과: $(ls -la $MODEL_ROOT/checkpoints/crealism_v2.safetensors 2>/dev/null | awk '{print $5}') bytes"
-fi
-
-# RealVisXL V4.0
+# 실사 모델 = RealVisXL V4.0 (6.9GB 정상 checkpoint, 무검열 프롬프트로 처리)
+# (참고: samsmith47/photorealistic_nsfw_v2는 612MB 분할형 — checkpoint 아님, 2026-08-30 폐기)
 if [ ! -f $MODEL_ROOT/checkpoints/realvisxl_v40.safetensors ]; then
   echo "[startup] RealVisXL 다운로드..."
   curl -sL -o $MODEL_ROOT/checkpoints/realvisxl_v40.safetensors "https://huggingface.co/SG161222/RealVisXL_V4.0/resolve/main/RealVisXL_V4.0.safetensors" || true

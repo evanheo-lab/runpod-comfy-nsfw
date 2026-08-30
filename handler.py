@@ -59,7 +59,7 @@ MODEL_REALVISXL = "realvisxl_v40.safetensors"
 MODEL_CREALISM = "crealism_v2.safetensors"
 
 def wf_single(prompt_info, input_name, seed, denoise):
-    ckpt = prompt_info.get("settings", {}).get("model", MODEL_CREALISM)
+    ckpt = prompt_info.get("settings", {}).get("model", MODEL_REALVISXL)
     return {
         "4": {"class_type": "CheckpointLoaderSimple", "inputs": {"ckpt_name": ckpt}},
         "5c": {"class_type": "LoadImage", "inputs": {"image": input_name}},
@@ -76,7 +76,7 @@ def wf_3stage(prompt_info, input_name, seed):
     steps = prompt_info["settings"].get("steps", 28)
     return {
         "1": {"class_type": "CheckpointLoaderSimple", "inputs": {"ckpt_name": MODEL_REALVISXL}},
-        "2": {"class_type": "CheckpointLoaderSimple", "inputs": {"ckpt_name": MODEL_CREALISM}},
+        "2": {"class_type": "CheckpointLoaderSimple", "inputs": {"ckpt_name": MODEL_REALVISXL}},
         "3": {"class_type": "IPAdapterUnifiedLoaderFaceID", "inputs": {"model": ["1", 0], "preset": "FACEID PLUS V2", "lora_strength": 1.0, "provider": "CUDA"}},
         "5": {"class_type": "LoadImage", "inputs": {"image": input_name}},
         "6": {"class_type": "CLIPVisionLoader", "inputs": {"clip_name": "CLIP-ViT-H-14-laion2B-s32B-b79K.safetensors"}},
