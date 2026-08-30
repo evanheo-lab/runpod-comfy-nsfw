@@ -70,6 +70,13 @@ fi
 
 echo "[startup] 모델 준비 완료"
 ls -la $MODEL_ROOT/checkpoints/ 2>/dev/null | head -20 || true
+# 디버그: 볼륨 내 모델 전체 출력
+echo "=== ipadapter ==="
+ls -la $MODEL_ROOT/ipadapter/ 2>/dev/null || echo "(ipadapter 없음)"
+echo "=== lora (ipadapter dir) ==="
+ls -la $MODEL_ROOT/ipadapter/*.safetensors 2>/dev/null || echo "(lora 없음)"
+echo "=== clip_vision ==="
+ls -la $MODEL_ROOT/clip_vision/ 2>/dev/null || echo "(clip_vision 없음)"
 
 # ── ReActor 커스텀 노드 의존성 보강 (ComfyUI 시작 전!) ──────
 # insightface가 이미 설치되어 있으면 skip, 없으면 설치 시도
