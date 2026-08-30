@@ -33,12 +33,13 @@ RUN pip install --no-cache-dir --no-build-isolation insightface || true
 # ★ ReActor NSFW 안전장치 비활성화 (무검열 파이프라인용)
 #   ReActor가 생성 이미지를 NSFW로 판단해 제거 → 검은 이미지 반환 문제 해결
 #   (2026-08-30 확정: "Checking for any unsafe content..." → 검은 5KB 출력)
+#   주의: 파일명은 scripts/reactor_sfw.py (sfw.py 아님!)
 RUN python3 - <<'EOF'
 import pathlib
-p = pathlib.Path("/ComfyUI/custom_nodes/comfyui-reactor-node")
-targets = list(p.rglob("sfw.py"))
+p = pathlib.Path("/ComfyUI/custom_nodes/comfyui-reactor-node/scripts")
+targets = list(p.rglob("reactor_sfw.py"))
 if not targets:
-    print("WARN sfw.py not found")
+    print("WARN reactor_sfw.py not found")
 else:
     for f in targets:
         src = f.read_text(encoding="utf-8", errors="replace")
