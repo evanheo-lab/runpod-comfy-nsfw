@@ -30,6 +30,25 @@ RUN pip install --no-cache-dir insightface onnxruntime-gpu || true
 # insightface가 실패할 경우 빌드 툴체인 재시도 (컴파일 필요할 수 있음)
 RUN pip install --no-cache-dir --no-build-isolation insightface || true
 
+# ★ ReActor NSFW 안전장치 비활성화 (무검열 파이프라인용)
+#   ReActor가 생성 이미지를 NSFW로 판단해 제거 → 검은 이미지 반환 문제 해결
+#   (2026-08-30 확정: "Checking for any unsafe content..." → 검은 5KB 출력)
+RUN python3 - <<'EOF'
+import pathlib
+p = pathlib.Path("/ComfyUI/custom_nodes/comfyui-reactor-node")
+targets = list(p.rglob("sfw.py"))
+if not targets:
+    print("WARN sfw.py not found")
+else:
+    for f in targets:
+        src = f.read_text(encoding="utf-8", errors="replace")
+        if "def nsfw_image_orig" not in src:
+            src = src.replace("def nsfw_image(", "def nsfw_image_orig(")
+            src += "\n\ndef nsfw_image(*args, **kwargs):\n    # 무검열 파이프라인: 항상 안전으로 판정 (NSFW 차단 비활성화)\n    return False\n"
+            f.write_text(src, encoding="utf-8")
+        print("patched:", f)
+EOF
+
 # 커스텀 노드 모델 디렉토리 생성 (startup이 모델 받는 곳)
 RUN mkdir -p /models/checkpoints /models/controlnet /models/clip_vision \
     && mkdir -p /ComfyUI/models/checkpoints /ComfyUI/models/controlnet /ComfyUI/models/clip_vision \
