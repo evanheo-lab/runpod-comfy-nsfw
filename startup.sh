@@ -12,9 +12,9 @@ echo "[startup] 모델 준비 시작 $(date)"
 MODEL_ROOT="/ComfyUI/models"
 if [ -d /runpod-volume ]; then
   VOL_MODELS="/runpod-volume/models"
-  mkdir -p "$VOL_MODELS/checkpoints" "$VOL_MODELS/controlnet" "$VOL_MODELS/clip_vision" "$VOL_MODELS/ipadapter" "$VOL_MODELS/insightface" "$VOL_MODELS/facerestore_models"
+  mkdir -p "$VOL_MODELS/checkpoints" "$VOL_MODELS/controlnet" "$VOL_MODELS/clip_vision" "$VOL_MODELS/ipadapter" "$VOL_MODELS/loras" "$VOL_MODELS/insightface" "$VOL_MODELS/facerestore_models"
   # 심볼릭 링크: ComfyUI 경로 → 볼륨
-  for sub in checkpoints controlnet clip_vision ipadapter insightface facerestore_models; do
+  for sub in checkpoints controlnet clip_vision ipadapter loras insightface facerestore_models; do
     if [ ! -L "$MODEL_ROOT/$sub" ] && [ -d "$MODEL_ROOT/$sub" ]; then
       rm -rf "$MODEL_ROOT/$sub"
     fi
@@ -52,10 +52,10 @@ if [ ! -f $MODEL_ROOT/ipadapter/ip-adapter-faceid-plusv2_sdxl.bin ]; then
   echo "[startup] IPAdapter FaceID 다운로드..."
   curl -sL -o $MODEL_ROOT/ipadapter/ip-adapter-faceid-plusv2_sdxl.bin "https://huggingface.co/h94/IP-Adapter-FaceID/resolve/main/ip-adapter-faceid-plusv2_sdxl.bin" || true
 fi
-# IPAdapter FaceID lora
-if [ ! -f $MODEL_ROOT/ipadapter/ip-adapter-faceid-plusv2_sdxl_lora.safetensors ]; then
-  echo "[startup] IPAdapter FaceID lora 다운로드..."
-  curl -sL -o $MODEL_ROOT/ipadapter/ip-adapter-faceid-plusv2_sdxl_lora.safetensors "https://huggingface.co/h94/IP-Adapter-FaceID/resolve/main/ip-adapter-faceid-plusv2_sdxl_lora.safetensors" || true
+# IPAdapter FaceID lora — ★ loras 폴더에 넣어야 IPAdapter_plus가 찾음 (2026-08-30 확정)
+if [ ! -f $MODEL_ROOT/loras/ip-adapter-faceid-plusv2_sdxl_lora.safetensors ]; then
+  echo "[startup] IPAdapter FaceID lora 다운로드 (loras 폴더)..."
+  curl -sL -o $MODEL_ROOT/loras/ip-adapter-faceid-plusv2_sdxl_lora.safetensors "https://huggingface.co/h94/IP-Adapter-FaceID/resolve/main/ip-adapter-faceid-plusv2_sdxl_lora.safetensors" || true
 fi
 # ReActor — inswapper + GFPGAN (facerestore)
 mkdir -p $MODEL_ROOT/insightface $MODEL_ROOT/facerestore_models
