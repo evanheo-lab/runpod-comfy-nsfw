@@ -93,6 +93,9 @@ cd /ComfyUI
 setsid nohup python3 main.py --port 3000 > /tmp/comfy.log 2>&1 < /dev/null &
 COMFY_PID=$!
 echo "[startup] ComfyUI PID: $COMFY_PID"
+# ComfyUI 로그를 워커 로그 스트림으로 실시간 포워딩 (디버깅용)
+setsid nohup tail -f /tmp/comfy.log > /proc/1/fd/1 2>&1 < /dev/null &
+echo "[startup] ComfyUI 로그 포워딩 시작"
 
 # ComfyUI ready 대기 (최대 300초)
 for i in $(seq 1 60); do

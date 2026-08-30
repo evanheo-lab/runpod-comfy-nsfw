@@ -166,7 +166,15 @@ def handler(job):
     pid = submit(wf)
     files = wait(pid)
     if not files:
-        return {"error": "no output", "prompt_id": pid}
+        # ComfyUI 로그 마지막 부분에서 원인 캡처
+        reason = ""
+        try:
+            with open("/tmp/comfy.log", "r", errors="replace") as cf:
+                clines = cf.read().split("\n")
+            reason = "\n".join([l for l in clines[-30:] if l.strip()])
+        except Exception:
+            pass
+        return {"error": "no output", "prompt_id": pid, "comfy_tail": reason[-2000:]}
     img_bytes = download(files[0])
     return {
         "image_b64": base64.b64encode(img_bytes).decode(),
