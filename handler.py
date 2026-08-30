@@ -24,8 +24,13 @@ def upload(path):
 def submit(wf):
     req = urllib.request.Request(f"{COMFY_URL}/prompt", data=json.dumps({"prompt": wf}).encode(),
                                  headers={"Content-Type": "application/json"}, method="POST")
-    with urllib.request.urlopen(req, timeout=120) as r:
-        return json.loads(r.read().decode()).get("prompt_id")
+    try:
+        with urllib.request.urlopen(req, timeout=120) as r:
+            return json.loads(r.read().decode()).get("prompt_id")
+    except urllib.error.HTTPError as e:
+        body = e.read().decode(errors="replace")
+        print(f"[handler] ComfyUI prompt HTTP {e.code}: {body[:2000]}", flush=True)
+        raise RuntimeError(f"ComfyUI {e.code}: {body[:2000]}")
 
 def wait(pid, timeout=600):
     start = time.time()
