@@ -78,6 +78,15 @@ fi
 echo "[startup] 모델 준비 완료"
 ls -la $MODEL_ROOT/checkpoints/ 2>/dev/null | head -20 || true
 
+# ── ReActor 커스텀 노드 의존성 보강 (ComfyUI 시작 전!) ──────
+# insightface가 이미 설치되어 있으면 skip, 없으면 설치 시도
+python3 -c "import insightface" 2>/dev/null && echo "[startup] insightface 이미 설치됨" || {
+  echo "[startup] insightface 설치 시도..."
+  pip install --no-cache-dir insightface onnxruntime-gpu 2>&1 | tail -3 || echo "[startup] insightface 설치 실패(무시)"
+}
+# ReActor install.py 실행 (모델 buffalo_l/inswapper 자동 설치 — folder_paths import가 실패할 수 있어 예외 처리)
+cd /ComfyUI/custom_nodes/comfyui-reactor-node && python3 install.py 2>&1 | tail -5 || echo "[startup] ReActor install.py 스킵"
+
 # ── ComfyUI 기동 ────────────────────────────────────────────
 echo "[startup] ComfyUI 시작..."
 cd /ComfyUI
