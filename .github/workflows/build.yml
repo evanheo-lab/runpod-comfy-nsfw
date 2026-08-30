@@ -39,3 +39,10 @@ jobs:
           tags: |
             ghcr.io/evanheo-lab/runpod-comfy-nsfw:latest
             ghcr.io/evanheo-lab/runpod-comfy-nsfw:${{ github.sha }}
+
+      - name: Push to RunPod Registry (GHCR private → RunPod은 pull 불가)
+        run: |
+          docker pull ghcr.io/evanheo-lab/runpod-comfy-nsfw:latest
+          docker tag ghcr.io/evanheo-lab/runpod-comfy-nsfw:latest registry.runpod.net/user_3HyhfnH5HQPxMq3NW0QlEomjEzP/runpod-comfy-nsfw:latest
+          echo "${{ secrets.RUNPOD_REGISTRY_TOKEN }}" | docker login registry.runpod.net -u user_3HyhfnH5HQPxMq3NW0QlEomjEzP --password-stdin
+          docker push registry.runpod.net/user_3HyhfnH5HQPxMq3NW0QlEomjEzP/runpod-comfy-nsfw:latest
