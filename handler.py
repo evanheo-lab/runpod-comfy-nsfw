@@ -71,9 +71,16 @@ def wf_single(prompt_info, input_name, seed, denoise):
         "12": {"class_type": "SaveImage", "inputs": {"filename_prefix": "out", "images": ["11", 0]}},
     }
 
-def wf_3stage(prompt_info, input_name, seed):
+def wf_3stage(prompt_info, input_name, seed, sim=None):
     pos, neg = prompt_info["positive"], prompt_info["negative"]
     steps = prompt_info["settings"].get("steps", 28)
+    sim = sim or {}
+    # 유사도 파라미터 — job 입력에서 조정 (재빌드 불필요)
+    ip_w = float(sim.get("ipadapter_weight", 1.05))      # 얼굴 특징 강도 (0.5~1.5)
+    ip_end = float(sim.get("ipadapter_end_at", 0.95))    # 적용 구간 (0~1)
+    dn1 = float(sim.get("denoise1", 0.55))               # 1단계 구조 보존 (낮을수록 원본 유지)
+    dn2 = float(sim.get("denoise2", 0.80))               # 2단계 생성 강도
+    rs_vis = float(sim.get("reactor_visibility", 1.0))   # 얼굴 스왑 강도 (0~1)
     return {
         "1": {"class_type": "CheckpointLoaderSimple", "inputs": {"ckpt_name": MODEL_REALVISXL}},
         "2": {"class_type": "CheckpointLoaderSimple", "inputs": {"ckpt_name": MODEL_REALVISXL}},
@@ -82,17 +89,17 @@ def wf_3stage(prompt_info, input_name, seed):
         "6": {"class_type": "CLIPVisionLoader", "inputs": {"clip_name": "CLIP-ViT-H-14-laion2B-s32B-b79K.safetensors"}},
         "7": {"class_type": "CLIPTextEncode", "inputs": {"text": pos, "clip": ["1", 1]}},
         "8": {"class_type": "CLIPTextEncode", "inputs": {"text": neg, "clip": ["1", 1]}},
-        "9": {"class_type": "IPAdapterFaceID", "inputs": {"model": ["3", 0], "ipadapter": ["3", 1], "image": ["5", 0], "clip_vision": ["6", 0], "weight": 1.05, "weight_faceidv2": 1.05, "weight_type": "linear", "combine_embeds": "concat", "start_at": 0.0, "end_at": 0.95, "embeds_scaling": "V only"}},
+        "9": {"class_type": "IPAdapterFaceID", "inputs": {"model": ["3", 0], "ipadapter": ["3", 1], "image": ["5", 0], "clip_vision": ["6", 0], "weight": ip_w, "weight_faceidv2": ip_w, "weight_type": "linear", "combine_embeds": "concat", "start_at": 0.0, "end_at": ip_end, "embeds_scaling": "V only"}},
         "5c": {"class_type": "LoadImage", "inputs": {"image": input_name}},
         "5d": {"class_type": "VAEEncode", "inputs": {"pixels": ["5c", 0], "vae": ["1", 2]}},
-        "10a": {"class_type": "KSampler", "inputs": {"seed": seed, "steps": 30, "cfg": 6.0, "sampler_name": "dpmpp_2m", "scheduler": "normal", "denoise": 0.55, "model": ["9", 0], "positive": ["7", 0], "negative": ["8", 0], "latent_image": ["5d", 0]}},
+        "10a": {"class_type": "KSampler", "inputs": {"seed": seed, "steps": 30, "cfg": 6.0, "sampler_name": "dpmpp_2m", "scheduler": "normal", "denoise": dn1, "model": ["9", 0], "positive": ["7", 0], "negative": ["8", 0], "latent_image": ["5d", 0]}},
         "11a": {"class_type": "VAEDecode", "inputs": {"samples": ["10a", 0], "vae": ["1", 2]}},
         "7b": {"class_type": "CLIPTextEncode", "inputs": {"text": pos, "clip": ["2", 1]}},
         "8b": {"class_type": "CLIPTextEncode", "inputs": {"text": neg, "clip": ["2", 1]}},
         "5e": {"class_type": "VAEEncode", "inputs": {"pixels": ["11a", 0], "vae": ["2", 2]}},
-        "10b": {"class_type": "KSampler", "inputs": {"seed": seed + 1, "steps": steps, "cfg": 8.0, "sampler_name": "dpmpp_2m", "scheduler": "normal", "denoise": 0.80, "model": ["2", 0], "positive": ["7b", 0], "negative": ["8b", 0], "latent_image": ["5e", 0]}},
+        "10b": {"class_type": "KSampler", "inputs": {"seed": seed + 1, "steps": steps, "cfg": 8.0, "sampler_name": "dpmpp_2m", "scheduler": "normal", "denoise": dn2, "model": ["2", 0], "positive": ["7b", 0], "negative": ["8b", 0], "latent_image": ["5e", 0]}},
         "11b": {"class_type": "VAEDecode", "inputs": {"samples": ["10b", 0], "vae": ["2", 2]}},
-        "13": {"class_type": "ReActorFaceSwap", "inputs": {"enabled": True, "input_image": ["11b", 0], "source_image": ["5", 0], "swap_model": "inswapper_128.onnx", "facedetection": "retinaface_resnet50", "face_restore_model": "GFPGANv1.4.pth", "visibility": 1.0, "console_log_level": 1, "input_faces_index": "0", "source_faces_index": "0", "detect_gender_input": "no", "detect_gender_source": "no", "codeformer_weight": 0.5, "face_restore_visibility": 1.0}},
+        "13": {"class_type": "ReActorFaceSwap", "inputs": {"enabled": True, "input_image": ["11b", 0], "source_image": ["5", 0], "swap_model": "inswapper_128.onnx", "facedetection": "retinaface_resnet50", "face_restore_model": "GFPGANv1.4.pth", "visibility": rs_vis, "console_log_level": 1, "input_faces_index": "0", "source_faces_index": "0", "detect_gender_input": "no", "detect_gender_source": "no", "codeformer_weight": 0.5, "face_restore_visibility": 1.0}},
         "14": {"class_type": "SaveImage", "inputs": {"filename_prefix": "out", "images": ["13", 0]}},
     }
 
@@ -158,7 +165,8 @@ def handler(job):
         pose_name = upload(ptmp)
         wf = wf_openpose(prompt_info, input_name, pose_name, seed)
     elif mode == "faceid":
-        wf = wf_3stage(prompt_info, input_name, seed)
+        sim = inp.get("similarity", {})
+        wf = wf_3stage(prompt_info, input_name, seed, sim)
     else:
         denoise = inp.get("denoise", 0.88 if prompt_info.get("level", 4) >= 4 else 0.6)
         wf = wf_single(prompt_info, input_name, seed, denoise)
