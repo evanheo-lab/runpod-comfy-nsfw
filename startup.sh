@@ -9,17 +9,13 @@ set -e
 echo "[startup] 모델 준비 시작 $(date)"
 
 # ── 모델 다운로드 (HuggingFace) ─────────────────────────────
-# CreaLISM v2 (무검열 고수위) — gated repo → HF_TOKEN 인증 필요
-#   HF_TOKEN은 RunPod 엔드포인트 env로 주입
+# CreaLISM 대체: samsmith47/photorealistic_nsfw_v2 (무검열 실사 NSFW SDXL, 단일 checkpoint)
+#   (원래 CreaLISM은 CivitAI 로그인 필요 → VPS에서 다운로드 불가, 2026-08-30 판정)
 if [ ! -f /ComfyUI/models/checkpoints/crealism_v2.safetensors ]; then
-  echo "[startup] CreaLISM 다운로드 (HF_TOKEN=${HF_TOKEN:+설정됨})..."
+  echo "[startup] 무검열 NSFW 모델 다운로드 (photorealistic_nsfw_v2)..."
   cd /ComfyUI/models/checkpoints
-  if [ -n "$HF_TOKEN" ]; then
-    curl -sL -H "Authorization: Bearer $HF_TOKEN" -o creatism_v2.safetensors "https://huggingface.co/banodoco/CreaLISM/resolve/main/CreaLISM_v2.safetensors" || true
-  else
-    curl -sL -o creatism_v2.safetensors "https://huggingface.co/banodoco/CreaLISM/resolve/main/CreaLISM_v2.safetensors" || true
-  fi
-  echo "[startup] CreaLISM 다운로드 결과: $(ls -la creatism_v2.safetensors 2>/dev/null | awk '{print $5}') bytes"
+  curl -sL -o creatism_v2.safetensors "https://huggingface.co/samsmith47/photorealistic_nsfw_v2/resolve/main/photorealistic_nude.safetensors" || true
+  echo "[startup] 다운로드 결과: $(ls -la creatism_v2.safetensors 2>/dev/null | awk '{print $5}') bytes"
 fi
 
 # RealVisXL V4.0
