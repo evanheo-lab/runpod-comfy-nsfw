@@ -78,9 +78,12 @@ def wf_3stage(prompt_info, input_name, seed, sim=None):
     # 유사도 파라미터 — job 입력에서 조정 (재빌드 불필요)
     ip_w = float(sim.get("ipadapter_weight", 1.05))      # 얼굴 특징 강도 (0.5~1.5)
     ip_end = float(sim.get("ipadapter_end_at", 0.95))    # 적용 구간 (0~1)
-    dn1 = float(sim.get("denoise1", 0.55))               # 1단계 구조 보존 (낮을수록 원본 유지)
+    dn1 = float(sim.get("denoise1", 1.0))               # 1단계: 빈 캔버스에서 전체 생성 (1.0)
     dn2 = float(sim.get("denoise2", 0.80))               # 2단계 생성 강도
     rs_vis = float(sim.get("reactor_visibility", 1.0))   # 얼굴 스왑 강도 (0~1)
+    # 전신 비율 (세로) — prompt settings 기본값 사용
+    width = int(prompt_info.get("settings", {}).get("width", 832))
+    height = int(prompt_info.get("settings", {}).get("height", 1216))
     return {
         "1": {"class_type": "CheckpointLoaderSimple", "inputs": {"ckpt_name": MODEL_REALVISXL}},
         "2": {"class_type": "CheckpointLoaderSimple", "inputs": {"ckpt_name": MODEL_REALVISXL}},
@@ -90,8 +93,8 @@ def wf_3stage(prompt_info, input_name, seed, sim=None):
         "7": {"class_type": "CLIPTextEncode", "inputs": {"text": pos, "clip": ["1", 1]}},
         "8": {"class_type": "CLIPTextEncode", "inputs": {"text": neg, "clip": ["1", 1]}},
         "9": {"class_type": "IPAdapterFaceID", "inputs": {"model": ["3", 0], "ipadapter": ["3", 1], "image": ["5", 0], "clip_vision": ["6", 0], "weight": ip_w, "weight_faceidv2": ip_w, "weight_type": "linear", "combine_embeds": "concat", "start_at": 0.0, "end_at": ip_end, "embeds_scaling": "V only"}},
-        "5c": {"class_type": "LoadImage", "inputs": {"image": input_name}},
-        "5d": {"class_type": "VAEEncode", "inputs": {"pixels": ["5c", 0], "vae": ["1", 2]}},
+        # ★ 1단계: 빈 캔버스(empty latent)에서 시작 → 전신 구도 새로 생성 (원본 상반신 구도 탈피)
+        "5d": {"class_type": "EmptyLatentImage", "inputs": {"width": width, "height": height, "batch_size": 1}},
         "10a": {"class_type": "KSampler", "inputs": {"seed": seed, "steps": 30, "cfg": 6.0, "sampler_name": "dpmpp_2m", "scheduler": "normal", "denoise": dn1, "model": ["9", 0], "positive": ["7", 0], "negative": ["8", 0], "latent_image": ["5d", 0]}},
         "11a": {"class_type": "VAEDecode", "inputs": {"samples": ["10a", 0], "vae": ["1", 2]}},
         "7b": {"class_type": "CLIPTextEncode", "inputs": {"text": pos, "clip": ["2", 1]}},
