@@ -8,8 +8,8 @@ FROM runpod/pytorch:1.1.0-cu1281-torch280-ubuntu2404
 RUN apt-get update -y && apt-get install -y git curl wget unzip ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
-# Python deps
-RUN pip install --no-cache-dir runpod fastapi uvicorn
+# Python deps (cryptography 데비안 설치본 충돌 방지 — --ignore-installed)
+RUN pip install --no-cache-dir --ignore-installed runpod fastapi uvicorn
 
 # ComfyUI
 WORKDIR /
