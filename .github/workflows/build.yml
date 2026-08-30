@@ -27,17 +27,15 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Log in to Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: evanheo
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - name: Debug Docker Hub token length
+      - name: Debug Docker Hub token (before login)
         run: |
-          echo "token length: ${{ secrets.DOCKERHUB_TOKEN }}" | awk '{print "token length:", length($0)}'
-          echo "token prefix: $(echo ${{ secrets.DOCKERHUB_TOKEN }} | cut -c1-10)"
-          echo "token prefix (env): ${DOCKERHUB_TOKEN:0:10}"
+          echo "token length: $(echo -n "${{ secrets.DOCKERHUB_TOKEN }}" | wc -c)"
+          echo "token prefix: $(echo -n "${{ secrets.DOCKERHUB_TOKEN }}" | cut -c1-8)"
+          echo "first char: $(echo -n \"${{ secrets.DOCKERHUB_TOKEN }}\" | head -c 1)"
+
+      - name: Log in to Docker Hub
+        run: |
+          echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login docker.io -u evanheo --password-stdin
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
