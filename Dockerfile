@@ -18,8 +18,8 @@ RUN git clone https://github.com/comfyanonymous/ComfyUI.git /ComfyUI
 # 커스텀 노드 (IPAdapter_plus — FaceID)
 RUN git clone https://github.com/cubiq/ComfyUI_IPAdapter_plus.git /ComfyUI/custom_nodes/ComfyUI_IPAdapter_plus
 
-# ReActor 노드 (얼굴 스왑)
-RUN git clone https://github.com/Gourieff/comfyui-reactor-node.git /ComfyUI/custom_nodes/comfyui-reactor-node
+# ReActor 노드 (얼굴 스왑) — 구 저장소(comfyui-reactor-node)는 GitHub 비활성화 → 신규 주소 사용
+RUN git clone https://github.com/Gourieff/comfyui-reactor.git /ComfyUI/custom_nodes/comfyui-reactor-node
 
 # 커스텀 노드 모델 디렉토리 생성 (startup이 모델 받는 곳)
 RUN mkdir -p /models/checkpoints /models/controlnet /models/clip_vision \
