@@ -75,6 +75,28 @@ if [ ! -f $MODEL_ROOT/loras/ip-adapter-faceid-plusv2_sdxl_lora.safetensors ]; th
   echo "[startup] IPAdapter FaceID lora 다운로드 (loras 폴더)..."
   curl -sL -o $MODEL_ROOT/loras/ip-adapter-faceid-plusv2_sdxl_lora.safetensors "https://huggingface.co/h94/IP-Adapter-FaceID/resolve/main/ip-adapter-faceid-plusv2_sdxl_lora.safetensors" || true
 fi
+
+# ── 성인 체위/삽입 LoRA (2026-08-31 추가 — 삽입 장면 표현용) ──
+# 1) 남성/성기 표현 LoRA (pguy v1, Pony/SDXL 호환) 218MB
+if [ ! -f $MODEL_ROOT/loras/pguy.safetensors ]; then
+  if [ -n "$CIVITAI_TOKEN" ]; then
+    echo "[startup] pguy LoRA (남성 표현) 다운로드..."
+    curl -sL -H "Authorization: Bearer $CIVITAI_TOKEN" \
+      -o $MODEL_ROOT/loras/pguy.safetensors \
+      "https://civitai.com/api/download/models/1507868?fileId=1408088" || true
+    echo "[startup] pguy LoRA 결과: $(ls -la $MODEL_ROOT/loras/pguy.safetensors 2>/dev/null | awk '{print $5}') bytes"
+  fi
+fi
+# 2) 삽입 제스처 LoRA (segg_gesture v2, Pony/SDXL 호환) 122MB
+if [ ! -f $MODEL_ROOT/loras/segg_gesture_v2.safetensors ]; then
+  if [ -n "$CIVITAI_TOKEN" ]; then
+    echo "[startup] segg_gesture LoRA (삽입 제스처) 다운로드..."
+    curl -sL -H "Authorization: Bearer $CIVITAI_TOKEN" \
+      -o $MODEL_ROOT/loras/segg_gesture_v2.safetensors \
+      "https://civitai.com/api/download/models/485933?fileId=404005" || true
+    echo "[startup] segg_gesture 결과: $(ls -la $MODEL_ROOT/loras/segg_gesture_v2.safetensors 2>/dev/null | awk '{print $5}') bytes"
+  fi
+fi
 # ReActor — inswapper + GFPGAN (facerestore)
 mkdir -p $MODEL_ROOT/insightface $MODEL_ROOT/facerestore_models
 if [ ! -f $MODEL_ROOT/insightface/inswapper_128.onnx ]; then

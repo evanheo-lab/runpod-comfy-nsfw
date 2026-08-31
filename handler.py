@@ -81,17 +81,24 @@ def wf_3stage(prompt_info, input_name, seed, sim=None):
     dn1 = float(sim.get("denoise1", 1.0))               # 1단계: 빈 캔버스에서 전체 생성 (1.0)
     dn2 = float(sim.get("denoise2", 0.80))               # 2단계 생성 강도
     rs_vis = float(sim.get("reactor_visibility", 1.0))   # 얼굴 스왑 강도 (0~1)
+    # 성인 LoRA 강도 (0 = 끔, 기본 0.8)
+    lora_pguy = float(sim.get("lora_pguy", 0.8))          # 남성/성기 표현
+    lora_segg = float(sim.get("lora_segg", 0.8))          # 삽입 제스처
     # 전신 비율 (세로) — prompt settings 기본값 사용
     width = int(prompt_info.get("settings", {}).get("width", 832))
     height = int(prompt_info.get("settings", {}).get("height", 1216))
+    ckpt = prompt_info.get("settings", {}).get("model", MODEL_REALVISXL)
     return {
-        "1": {"class_type": "CheckpointLoaderSimple", "inputs": {"ckpt_name": MODEL_REALVISXL}},
-        "2": {"class_type": "CheckpointLoaderSimple", "inputs": {"ckpt_name": MODEL_REALVISXL}},
-        "3": {"class_type": "IPAdapterUnifiedLoaderFaceID", "inputs": {"model": ["1", 0], "preset": "FACEID PLUS V2", "lora_strength": 1.0, "provider": "CUDA"}},
+        "1": {"class_type": "CheckpointLoaderSimple", "inputs": {"ckpt_name": ckpt}},
+        "2": {"class_type": "CheckpointLoaderSimple", "inputs": {"ckpt_name": ckpt}},
+        # ★ 성인 LoRA 적용 (pguy + segg) — 있으면 적용, 없으면 원본 그대로
+        "1l": {"class_type": "LoraLoader", "inputs": {"model": ["1", 0], "clip": ["1", 1], "lora_name": "pguy.safetensors", "strength_model": lora_pguy, "strength_clip": lora_pguy}},
+        "1l2": {"class_type": "LoraLoader", "inputs": {"model": ["1l", 0], "clip": ["1l", 1], "lora_name": "segg_gesture_v2.safetensors", "strength_model": lora_segg, "strength_clip": lora_segg}},
+        "3": {"class_type": "IPAdapterUnifiedLoaderFaceID", "inputs": {"model": ["1l2", 0], "preset": "FACEID PLUS V2", "lora_strength": 1.0, "provider": "CUDA"}},
         "5": {"class_type": "LoadImage", "inputs": {"image": input_name}},
         "6": {"class_type": "CLIPVisionLoader", "inputs": {"clip_name": "CLIP-ViT-H-14-laion2B-s32B-b79K.safetensors"}},
-        "7": {"class_type": "CLIPTextEncode", "inputs": {"text": pos, "clip": ["1", 1]}},
-        "8": {"class_type": "CLIPTextEncode", "inputs": {"text": neg, "clip": ["1", 1]}},
+        "7": {"class_type": "CLIPTextEncode", "inputs": {"text": pos, "clip": ["1l2", 1]}},
+        "8": {"class_type": "CLIPTextEncode", "inputs": {"text": neg, "clip": ["1l2", 1]}},
         "9": {"class_type": "IPAdapterFaceID", "inputs": {"model": ["3", 0], "ipadapter": ["3", 1], "image": ["5", 0], "clip_vision": ["6", 0], "weight": ip_w, "weight_faceidv2": ip_w, "weight_type": "linear", "combine_embeds": "concat", "start_at": 0.0, "end_at": ip_end, "embeds_scaling": "V only"}},
         # ★ 1단계: 빈 캔버스(empty latent)에서 시작 → 전신 구도 새로 생성 (원본 상반신 구도 탈피)
         "5d": {"class_type": "EmptyLatentImage", "inputs": {"width": width, "height": height, "batch_size": 1}},
