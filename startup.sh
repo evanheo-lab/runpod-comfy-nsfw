@@ -35,9 +35,12 @@ fi
 # ── CreaLISM (NSFW 전용 SDXL) — 남성기·삽입 표현용 (2026-08-31 추가) ──
 # 출처: Civitai model 1836368 (Terra Mirabilis PhotoRealistic NSFW SDXL), v2.0
 # Civitai 토큰은 엔드포인트 env(CIVITAI_TOKEN)로 주입됨
-if [ ! -f $MODEL_ROOT/checkpoints/crealism_v2.safetensors ]; then
+# ★ 크기 검증: 정상 파일은 6.7GB. 1GB 미만(이전 잔여 불량 612MB)이면 재다운로드
+CREALISM_SIZE=$(stat -c%s $MODEL_ROOT/checkpoints/crealism_v2.safetensors 2>/dev/null || echo 0)
+if [ ! -f $MODEL_ROOT/checkpoints/crealism_v2.safetensors ] || [ "$CREALISM_SIZE" -lt 1000000000 ]; then
   if [ -n "$CIVITAI_TOKEN" ]; then
-    echo "[startup] CreaLISM 다운로드 (Civitai, 6.7GB)..."
+    echo "[startup] CreaLISM 다운로드: 기존 크기=${CREALISM_SIZE} bytes (6.7GB 필요) — Civitai에서 재다운로드..."
+    rm -f $MODEL_ROOT/checkpoints/crealism_v2.safetensors
     curl -sL -H "Authorization: Bearer $CIVITAI_TOKEN" \
       -o $MODEL_ROOT/checkpoints/crealism_v2.safetensors \
       "https://civitai.com/api/download/models/2237143?fileId=2130410" || true
