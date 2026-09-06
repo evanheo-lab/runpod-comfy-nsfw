@@ -128,6 +128,30 @@ def wf_inpaint(prompt_info, input_name, mask_name, seed):
         "12": {"class_type": "SaveImage", "inputs": {"filename_prefix": "out", "images": ["11", 0]}},
     }
 
+def wf_reface(input_name, source_name):
+    """ReActor FaceSwap 단독 — 대상 이미지(input_name)의 얼굴을 레퍼런스(source_name)로 교체"""
+    return {
+        "5c": {"class_type": "LoadImage", "inputs": {"image": input_name}},
+        "5s": {"class_type": "LoadImage", "inputs": {"image": source_name}},
+        "13": {"class_type": "ReActorFaceSwap", "inputs": {
+            "enabled": True,
+            "input_image": ["5c", 0],
+            "source_image": ["5s", 0],
+            "swap_model": "inswapper_128.onnx",
+            "facedetection": "retinaface_resnet50",
+            "face_restore_model": "GFPGANv1.4.pth",
+            "visibility": 1.0,
+            "console_log_level": 1,
+            "input_faces_index": "0",
+            "source_faces_index": "0",
+            "detect_gender_input": "no",
+            "detect_gender_source": "no",
+            "codeformer_weight": 0.5,
+            "face_restore_visibility": 1.0,
+        }},
+        "14": {"class_type": "SaveImage", "inputs": {"filename_prefix": "out", "images": ["13", 0]}},
+    }
+
 def wf_openpose(prompt_info, input_name, pose_name, seed):
     pos, neg = prompt_info["positive"], prompt_info["negative"]
     ckpt = prompt_info.get("settings", {}).get("model", MODEL_REALVISXL)
@@ -168,6 +192,12 @@ def handler(job):
             f.write(base64.b64decode(inp["mask_b64"]))
         mask_name = upload(mtmp)
         wf = wf_inpaint(prompt_info, input_name, mask_name, seed)
+    elif mode == "reface" and inp.get("face_source_b64"):
+        stmp = "/tmp/ref.png"
+        with open(stmp, "wb") as f:
+            f.write(base64.b64decode(inp["face_source_b64"]))
+        source_name = upload(stmp)
+        wf = wf_reface(input_name, source_name)
     elif mode == "openpose" and inp.get("pose_b64"):
         ptmp = "/tmp/pose.png"
         with open(ptmp, "wb") as f:
