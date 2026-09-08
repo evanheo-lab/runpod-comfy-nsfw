@@ -92,6 +92,14 @@ def ensure_illustrious():
     if _safetensors_header_ok(ILLUST_PATH, ILLUST_TARGET):
         return "ok"
     print("[handler] Illustrious-XL 손상/불완전 — 다운로드 시작", flush=True)
+    # 원인(exit 23 = write error): 기존 손상 파일과 tmp 동시 존재로 디스크 부족. 다운로드 전 삭제해 공간 확보 후 tmp로 받기 -> 검증 -> rename
+    #   → 다운로드 전 기존 손상 파일부터 삭제해 공간 확보 후 tmp로 받기 → 검증 → rename
+    if os.path.exists(ILLUST_PATH):
+        try:
+            os.remove(ILLUST_PATH)
+            print(f"[handler] 기존 손상 파일 삭제 완료 (공간 확보)", flush=True)
+        except Exception as e:
+            print(f"[handler] 기존 파일 삭제 실패: {e}", flush=True)
     tmp = ILLUST_PATH + ".tmp"
     tries = []
     for name, url in ILLUST_SOURCES:
