@@ -50,6 +50,21 @@ if [ ! -f $MODEL_ROOT/checkpoints/crealism_v2.safetensors ] || [ "$CREALISM_SIZE
   fi
 fi
 
+# ── Illustrious-XL (애니메/만화 NSFW 전용 SDXL) — 2026-09-08 추가 ──
+# 출처: Civitai model 795765 (Illustrious-XL v1.0), ver 889818
+# 용도: 만화/아니메 이미지 → 화풍 유지 NSFW 변환 (방법1: 만화풍 그대로)
+if [ ! -f $MODEL_ROOT/checkpoints/illustrious_xl.safetensors ]; then
+  if [ -n "$CIVITAI_TOKEN" ]; then
+    echo "[startup] Illustrious-XL 다운로드... (약 6.5GB)"
+    curl -sL -H "Authorization: Bearer ***" \
+      -o $MODEL_ROOT/checkpoints/illustrious_xl.safetensors \
+      "https://civitai.com/api/download/models/889818" || true
+    echo "[startup] Illustrious-XL 결과: $(ls -la $MODEL_ROOT/checkpoints/illustrious_xl.safetensors 2>/dev/null | awk '{print $5}') bytes"
+  else
+    echo "[startup] CIVITAI_TOKEN 없음 — Illustrious-XL 스킵"
+  fi
+fi
+
 # ControlNet OpenPose (SD15)
 if [ ! -f $MODEL_ROOT/controlnet/control_v11p_sd15_openpose.pth ]; then
   echo "[startup] ControlNet OpenPose 다운로드..."
