@@ -41,9 +41,9 @@ if [ ! -f $MODEL_ROOT/checkpoints/crealism_v2.safetensors ] || [ "$CREALISM_SIZE
   if [ -n "$CIVITAI_TOKEN" ]; then
     echo "[startup] CreaLISM 다운로드: 기존 크기=${CREALISM_SIZE} bytes (6.7GB 필요) — Civitai에서 재다운로드..."
     rm -f $MODEL_ROOT/checkpoints/crealism_v2.safetensors
-    curl -sL -H "Authorization: Bearer $CIVITAI_TOKEN" \
-      -o $MODEL_ROOT/checkpoints/crealism_v2.safetensors \
-      "https://civitai.com/api/download/models/2237143?fileId=2130410" || true
+    curl -sL --retry 3 --retry-all-errors -H "Authorization: Bearer $CIVITAI_TOKEN" \
+          -o $MODEL_ROOT/checkpoints/crealism_v2.safetensors \
+          "https://civitai.com/api/download/models/2237143?fileId=2130410" || true
     echo "[startup] CreaLISM 결과: $(ls -la $MODEL_ROOT/checkpoints/crealism_v2.safetensors 2>/dev/null | awk '{print $5}') bytes"
   else
     echo "[startup] CIVITAI_TOKEN 없음 — CreaLISM 스킵"
@@ -52,11 +52,15 @@ fi
 
 # ── Illustrious-XL (애니메/만화 NSFW 전용 SDXL) — 2026-09-08 추가 ──
 # 출처: Civitai model 795765 (Illustrious-XL v1.0), ver 889818
-# 용도: 만화/아니메 이미지 → 화풍 유지 NSFW 변환 (방법1: 만화풍 그대로)
-if [ ! -f $MODEL_ROOT/checkpoints/illustrious_xl.safetensors ]; then
+# 용도: 만화/아니메 이미지 → 화풍 유지 NSFW 변환
+# ★ 크기 검증: 정상 파일은 6.5GB. 1GB 미만(혹은 HTML 에러 페이지 잔재)이면 삭제 후 재다운로드
+# ★ 인증: 반드시 실제 토큰($CIVITAI_TOKEN) 사용 — '"Bearer ***'" 리터럴 금지 (2026-09-08 수정)
+ILLUST_SIZE=$(stat -c%s $MODEL_ROOT/checkpoints/illustrious_xl.safetensors 2>/dev/null || echo 0)
+if [ ! -f $MODEL_ROOT/checkpoints/illustrious_xl.safetensors ] || [ "$ILLUST_SIZE" -lt 1000000000 ]; then
   if [ -n "$CIVITAI_TOKEN" ]; then
-    echo "[startup] Illustrious-XL 다운로드... (약 6.5GB)"
-    curl -sL -H "Authorization: Bearer ***" \
+    echo "[startup] Illustrious-XL 다운로드: 기존 크기=${ILLUST_SIZE} bytes (6.5GB 필요) — Civitai에서 재다운로드..."
+    rm -f $MODEL_ROOT/checkpoints/illustrious_xl.safetensors
+    curl -sL --retry 3 --retry-all-errors -H "Authorization: Bearer $CIVITAI_TOKEN" \
       -o $MODEL_ROOT/checkpoints/illustrious_xl.safetensors \
       "https://civitai.com/api/download/models/889818" || true
     echo "[startup] Illustrious-XL 결과: $(ls -la $MODEL_ROOT/checkpoints/illustrious_xl.safetensors 2>/dev/null | awk '{print $5}') bytes"
