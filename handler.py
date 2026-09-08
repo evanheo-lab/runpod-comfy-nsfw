@@ -116,6 +116,7 @@ def ensure_illustrious():
                 return "replaced"
             tries.append(f"{name}#{i+1}(verify_fail)")
     print(f"[handler] Illustrious-XL 모든 소스 실패 — {tries}", flush=True)
+    return f"download_failed:{tries}"
 
 def wf_single(prompt_info, input_name, seed, denoise):
     ckpt = prompt_info.get("settings", {}).get("model", MODEL_REALVISXL)
