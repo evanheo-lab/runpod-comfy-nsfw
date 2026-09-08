@@ -57,6 +57,54 @@ def download(fname):
 
 MODEL_REALVISXL = "realvisxl_v40.safetensors"
 MODEL_CREALISM = "crealism_v2.safetensors"
+MODEL_ILLUSTRIOUS = "illustrious_xl.safetensors"
+
+# ── Illustrious-XL (만화 NSFW) 모델 보증 — 크기+헤더 내용 검증, 손상 시 새로 받기 ──
+# 배경: 부팅(startup.sh) 시 받은 파일이 "크기는 맞지만 내용 손상"이어서 ComfyUI 로드 실패
+# 해결: 워커가 뜬 뒤(핸들러 시작 시) 헤더까지 검증 → 손상이면 temp로 새로 받아 교체
+ILLUST_PATH = "/ComfyUI/models/checkpoints/" + MODEL_ILLUSTRIOUS
+ILLUST_TARGET = 6938040736
+ILLUST_URL = ("https://huggingface.co/Liberata/illustrious-xl-v1.0/"
+              "resolve/main/Illustrious-XL-v1.0.safetensors?download=true")
+
+def _safetensors_header_ok(path, target_size):
+    """크기 + safetensors 헤더(첫 8바이트 길이 + JSON)가 유효한지."""
+    try:
+        if os.path.getsize(path) != target_size:
+            return False
+        with open(path, "rb") as f:
+            head = f.read(8)
+            if len(head) != 8:
+                return False
+            n = int.from_bytes(head, "little")
+            if not (1024 <= n <= 16 * 1024 * 1024):
+                return False
+            meta = f.read(n)
+            json.loads(meta.decode("utf-8"))
+        return True
+    except Exception:
+        return False
+
+def ensure_illustrious():
+    if _safetensors_header_ok(ILLUST_PATH, ILLUST_TARGET):
+        return "ok"
+    print("[handler] Illustrious-XL 손상/불완전 — 새로 받기 시작", flush=True)
+    tmp = ILLUST_PATH + ".tmp"
+    try:
+        subprocess.run(
+            ["curl", "-fL", "--retry", "5", "--retry-all-errors",
+             "-o", tmp, ILLUST_URL],
+            check=True, timeout=1800,
+        )
+    except subprocess.CalledProcessError:
+        print("[handler] Illustrious-XL 다운로드 실패", flush=True)
+        return "download_failed"
+    if _safetensors_header_ok(tmp, ILLUST_TARGET):
+        os.replace(tmp, ILLUST_PATH)
+        print(f"[handler] ✅ Illustrious-XL 교체 완료 ({ILLUST_TARGET} bytes)", flush=True)
+        return "replaced"
+    print(f"[handler] 다운로드 후에도 검증 실패 — 유지 ({os.path.getsize(tmp)} bytes)", flush=True)
+    return "verify_failed"
 
 def wf_single(prompt_info, input_name, seed, denoise):
     ckpt = prompt_info.get("settings", {}).get("model", MODEL_REALVISXL)
@@ -180,6 +228,11 @@ def handler(job):
     mode = inp.get("mode", "img2img")
     if not image_b64:
         return {"error": "image_b64 required"}
+    # Illustrious-XL 요청이면 파일 무결성 보증 (손상 시 재다운로드)
+    if isinstance(prompt_info, dict) and prompt_info.get("settings", {}).get("model") == MODEL_ILLUSTRIOUS:
+        st = ensure_illustrious()
+        if st not in ("ok", "replaced"):
+            return {"error": f"illustrious model ensure failed: {st}"}
     tmp = "/tmp/in.png"
     with open(tmp, "wb") as f:
         f.write(base64.b64decode(image_b64))
