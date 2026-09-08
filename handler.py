@@ -61,11 +61,14 @@ MODEL_ILLUSTRIOUS = "illustrious_xl.safetensors"
 
 # ── Illustrious-XL (만화 NSFW) 모델 보증 — 크기+헤더 내용 검증, 손상 시 새로 받기 ──
 # 배경: 부팅(startup.sh) 시 받은 파일이 "크기는 맞지만 내용 손상"이어서 ComfyUI 로드 실패
-# 해결: 워커가 뜬 뒤(핸들러 시작 시) 헤더까지 검증 → 손상이면 temp로 새로 받아 교체
+#        → 핸들러가 감지하나, 단일 소스(Liberata) 다운로드가 컨테이너에서 취약(188초 실패) 확인
+# 해결: 멀티 소스 폴백(공식→미러) + 각 소스 retry 2 + 매 시도 전 tmp 삭제
 ILLUST_PATH = "/ComfyUI/models/checkpoints/" + MODEL_ILLUSTRIOUS
 ILLUST_TARGET = 6938040736
-ILLUST_URL = ("https://huggingface.co/Liberata/illustrious-xl-v1.0/"
-              "resolve/main/Illustrious-XL-v1.0.safetensors?download=true")
+ILLUST_SOURCES = [
+    ("huggingface(공식)", "https://huggingface.co/OnomaAIResearch/Illustrious-XL-v1.0/resolve/main/Illustrious-XL-v1.0.safetensors?download=true"),
+    ("huggingface(미러)", "https://huggingface.co/Liberata/illustrious-xl-v1.0/resolve/main/Illustrious-XL-v1.0.safetensors?download=true"),
+]
 
 def _safetensors_header_ok(path, target_size):
     """크기 + safetensors 헤더(첫 8바이트 길이 + JSON)가 유효한지."""
@@ -88,23 +91,31 @@ def _safetensors_header_ok(path, target_size):
 def ensure_illustrious():
     if _safetensors_header_ok(ILLUST_PATH, ILLUST_TARGET):
         return "ok"
-    print("[handler] Illustrious-XL 손상/불완전 — 새로 받기 시작", flush=True)
+    print("[handler] Illustrious-XL 손상/불완전 — 다운로드 시작", flush=True)
     tmp = ILLUST_PATH + ".tmp"
-    try:
-        subprocess.run(
-            ["curl", "-fL", "--retry", "5", "--retry-all-errors",
-             "-o", tmp, ILLUST_URL],
-            check=True, timeout=1800,
-        )
-    except subprocess.CalledProcessError:
-        print("[handler] Illustrious-XL 다운로드 실패", flush=True)
-        return "download_failed"
-    if _safetensors_header_ok(tmp, ILLUST_TARGET):
-        os.replace(tmp, ILLUST_PATH)
-        print(f"[handler] ✅ Illustrious-XL 교체 완료 ({ILLUST_TARGET} bytes)", flush=True)
-        return "replaced"
-    print(f"[handler] 다운로드 후에도 검증 실패 — 유지 ({os.path.getsize(tmp)} bytes)", flush=True)
-    return "verify_failed"
+    tries = []
+    for name, url in ILLUST_SOURCES:
+        if os.path.exists(tmp):
+            os.remove(tmp)
+        for i in range(2):  # 소스당 최대 2회
+            try:
+                subprocess.run(["curl", "-fL", "--retry", "2", "--retry-all-errors", "-o", tmp, url],
+                              check=True, timeout=1800)
+            except subprocess.CalledProcessError as e:
+                tries.append(f"{name}#{i+1}(exit {e.returncode})")
+                continue
+            except subprocess.TimeoutExpired:
+                tries.append(f"{name}#{i+1}(timeout)")
+                continue
+            if _safetensors_header_ok(tmp, ILLUST_TARGET):
+                os.replace(tmp, ILLUST_PATH)
+
+
+
+                print(f"[handler] ✅ Illustrious-XL 교체 완료 via {name} ({ILLUST_TARGET} bytes)", flush=True)
+                return "replaced"
+            tries.append(f"{name}#{i+1}(verify_fail)")
+    print(f"[handler] Illustrious-XL 모든 소스 실패 — {tries}", flush=True)
 
 def wf_single(prompt_info, input_name, seed, denoise):
     ckpt = prompt_info.get("settings", {}).get("model", MODEL_REALVISXL)
