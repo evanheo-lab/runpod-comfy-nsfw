@@ -151,18 +151,34 @@ def ensure_illustrious():
     print(f"[handler] Illustrious-XL 모든 소스 실패 — {tries} | {_disk_report()}", flush=True)
     return f"download_failed:{tries}"
 
-def wf_single(prompt_info, input_name, seed, denoise):
+def wf_single(prompt_info, input_name, seed, denoise, sim=None):
+    sim = sim or {}
     ckpt = prompt_info.get("settings", {}).get("model", MODEL_REALVISXL)
-    return {
+    lora_pguy = float(sim.get("lora_pguy", 0.0))
+    lora_segg = float(sim.get("lora_segg", 0.0))
+    wf = {
         "4": {"class_type": "CheckpointLoaderSimple", "inputs": {"ckpt_name": ckpt}},
         "5c": {"class_type": "LoadImage", "inputs": {"image": input_name}},
         "5d": {"class_type": "VAEEncode", "inputs": {"pixels": ["5c", 0], "vae": ["4", 2]}},
-        "7": {"class_type": "CLIPTextEncode", "inputs": {"text": prompt_info["positive"], "clip": ["4", 1]}},
-        "8": {"class_type": "CLIPTextEncode", "inputs": {"text": prompt_info["negative"], "clip": ["4", 1]}},
-        "10": {"class_type": "KSampler", "inputs": {"seed": seed, "steps": prompt_info["settings"].get("steps", 28), "cfg": prompt_info["settings"].get("cfg", 6.0), "sampler_name": "dpmpp_2m", "scheduler": "normal", "denoise": denoise, "model": ["4", 0], "positive": ["7", 0], "negative": ["8", 0], "latent_image": ["5d", 0]}},
-        "11": {"class_type": "VAEDecode", "inputs": {"samples": ["10", 0], "vae": ["4", 2]}},
-        "12": {"class_type": "SaveImage", "inputs": {"filename_prefix": "out", "images": ["11", 0]}},
     }
+    model_ref, clip_ref = ["4", 0], ["4", 1]
+    # 성인 LoRA (pguy=남성/성기, segg=삽입 제스처) — 요청 시에만 체인 (anime: Illustrious-XL 호환)
+    if lora_pguy > 0:
+        wf["1l"] = {"class_type": "LoraLoader", "inputs": {"model": model_ref, "clip": clip_ref,
+                     "lora_name": "pguy.safetensors", "strength_model": lora_pguy, "strength_clip": lora_pguy}}
+        model_ref, clip_ref = ["1l", 0], ["1l", 1]
+    if lora_segg > 0:
+        wf["1l2"] = {"class_type": "LoraLoader", "inputs": {"model": model_ref, "clip": clip_ref,
+                      "lora_name": "segg_gesture_v2.safetensors", "strength_model": lora_segg, "strength_clip": lora_segg}}
+        model_ref, clip_ref = ["1l2", 0], ["1l2", 1]
+    wf["7"] = {"class_type": "CLIPTextEncode", "inputs": {"text": prompt_info["positive"], "clip": clip_ref}}
+    wf["8"] = {"class_type": "CLIPTextEncode", "inputs": {"text": prompt_info["negative"], "clip": clip_ref}}
+    wf["10"] = {"class_type": "KSampler", "inputs": {"seed": seed, "steps": prompt_info["settings"].get("steps", 28),
+                "cfg": prompt_info["settings"].get("cfg", 6.0), "sampler_name": "dpmpp_2m", "scheduler": "normal",
+                "denoise": denoise, "model": model_ref, "positive": ["7", 0], "negative": ["8", 0], "latent_image": ["5d", 0]}}
+    wf["11"] = {"class_type": "VAEDecode", "inputs": {"samples": ["10", 0], "vae": ["4", 2]}}
+    wf["12"] = {"class_type": "SaveImage", "inputs": {"filename_prefix": "out", "images": ["11", 0]}}
+    return wf
 
 def wf_3stage(prompt_info, input_name, seed, sim=None):
     pos, neg = prompt_info["positive"], prompt_info["negative"]
@@ -307,7 +323,7 @@ def handler(job):
         wf = wf_3stage(prompt_info, input_name, seed, sim)
     else:
         denoise = inp.get("denoise", 0.88 if prompt_info.get("level", 4) >= 4 else 0.6)
-        wf = wf_single(prompt_info, input_name, seed, denoise)
+        wf = wf_single(prompt_info, input_name, seed, denoise, inp.get("similarity", {}))
 
     pid = submit(wf)
     files = wait(pid)
