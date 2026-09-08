@@ -88,7 +88,19 @@ def _safetensors_header_ok(path, target_size):
     except Exception:
         return False
 
+def _disk_report():
+    import shutil
+    lines = []
+    for p in ["/ComfyUI/models/checkpoints", "/runpod-volume", "/tmp", "/"]:
+        try:
+            u = shutil.disk_usage(p)
+            lines.append(f"{p} free={u.free//(1024**3)}GB total={u.total//(1024**3)}GB")
+        except Exception as e:
+            lines.append(f"{p} err={e}")
+    return " | ".join(lines)
+
 def ensure_illustrious():
+    print(f"[handler] ensure_illustrious 진단: {_disk_report()}", flush=True)
     if _safetensors_header_ok(ILLUST_PATH, ILLUST_TARGET):
         return "ok"
     print("[handler] Illustrious-XL 손상/불완전 — 다운로드 시작", flush=True)
@@ -111,19 +123,32 @@ def ensure_illustrious():
                               check=True, timeout=1800)
             except subprocess.CalledProcessError as e:
                 tries.append(f"{name}#{i+1}(exit {e.returncode})")
+                # exit 23(쓰기 오류) = 디스크 부족 의심 → 남은 tmp 정리 후 재시도
+                if e.returncode == 23:
+                    import shutil as _sh
+                    freed = []
+                    for stale in glob.glob("/ComfyUI/models/checkpoints/*.tmp") + glob.glob("/runpod-volume/models/checkpoints/*.tmp"):
+                        try:
+                            sz = os.path.getsize(stale)
+                            os.remove(stale)
+                            freed.append(f"{os.path.basename(stale)}({sz//(1024**2)}MB)")
+                        except Exception:
+                            pass
+                    try:
+                        u = _sh.disk_usage("/ComfyUI/models/checkpoints")
+                        print(f"[handler] exit23 정리: 삭제={freed or '없음'} checkpoints free={u.free//(1024**3)}GB", flush=True)
+                    except Exception:
+                        pass
                 continue
             except subprocess.TimeoutExpired:
                 tries.append(f"{name}#{i+1}(timeout)")
                 continue
             if _safetensors_header_ok(tmp, ILLUST_TARGET):
                 os.replace(tmp, ILLUST_PATH)
-
-
-
                 print(f"[handler] ✅ Illustrious-XL 교체 완료 via {name} ({ILLUST_TARGET} bytes)", flush=True)
                 return "replaced"
             tries.append(f"{name}#{i+1}(verify_fail)")
-    print(f"[handler] Illustrious-XL 모든 소스 실패 — {tries}", flush=True)
+    print(f"[handler] Illustrious-XL 모든 소스 실패 — {tries} | {_disk_report()}", flush=True)
     return f"download_failed:{tries}"
 
 def wf_single(prompt_info, input_name, seed, denoise):
