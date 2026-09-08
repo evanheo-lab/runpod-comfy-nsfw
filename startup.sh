@@ -54,15 +54,26 @@ fi
 # 출처: HF 미러 Liberata/illustrious-xl-v1.0 (Civitai model 795765 v1.0과 동일, 6.9GB)
 # 용도: 만화/아니메 이미지 → 화풍 유지 NSFW 변환
 # ★ 2026-09-08 오후: Civitai CDN(유럽) 속도 문제로 부팅 타임아웃 반복 → HF 미러로 교체. 토큰 불필요.
-# ★ 크기 검증: 정상 파일은 6.9GB. 1GB 미만(부분/에러 페이지 잔재)이면 삭제 후 재다운로드
+# ★ 크기 검증: 원본 정확히 6,938,040,736 바이트. 다르면 삭제(1GB 미만) 또는 이어받기(1GB↑) 후 재다운로드
 ILLUST_SIZE=$(stat -c%s $MODEL_ROOT/checkpoints/illustrious_xl.safetensors 2>/dev/null || echo 0)
-if [ ! -f $MODEL_ROOT/checkpoints/illustrious_xl.safetensors ] || [ "$ILLUST_SIZE" -lt 1000000000 ]; then
-  echo "[startup] Illustrious-XL 다운로드: 기존 크기=${ILLUST_SIZE} bytes (6.9GB 필요) — HF에서 재다운로드..."
-  rm -f $MODEL_ROOT/checkpoints/illustrious_xl.safetensors
-  curl -sL --retry 3 --retry-all-errors -C - \
+ILLUST_TARGET=6938040736
+if [ ! -f $MODEL_ROOT/checkpoints/illustrious_xl.safetensors ] || [ "$ILLUST_SIZE" -ne "$ILLUST_TARGET" ]; then
+  # 1GB 미만(손상/에러 페이지)만 완전 삭제, 그 이상은 -C -로 이어받기
+  if [ "$ILLUST_SIZE" -lt 1000000000 ]; then
+    echo "[startup] Illustrious-XL 손상 파일(${ILLUST_SIZE} bytes) 삭제 후 새로 받기..."
+    rm -f $MODEL_ROOT/checkpoints/illustrious_xl.safetensors
+  else
+    echo "[startup] Illustrious-XL 이어받기: 기존 ${ILLUST_SIZE} / ${ILLUST_TARGET} bytes..."
+  fi
+  curl -fL --retry 5 --retry-all-errors -C - \
     -o $MODEL_ROOT/checkpoints/illustrious_xl.safetensors \
     "https://huggingface.co/Liberata/illustrious-xl-v1.0/resolve/main/Illustrious-XL-v1.0.safetensors?download=true" || true
-  echo "[startup] Illustrious-XL 결과: $(ls -la $MODEL_ROOT/checkpoints/illustrious_xl.safetensors 2>/dev/null | awk '{print $5}') bytes"
+  FINAL=$(stat -c%s $MODEL_ROOT/checkpoints/illustrious_xl.safetensors 2>/dev/null || echo 0)
+  if [ "$FINAL" -eq "$ILLUST_TARGET" ]; then
+    echo "[startup] ✅ Illustrious-XL 완료: ${FINAL} bytes (정확히 일치)"
+  else
+    echo "[startup] ⚠️ Illustrious-XL 불완전: ${FINAL} / ${ILLUST_TARGET} — 다음 부팅에서 이어받기"
+  fi
 fi
 
 # ControlNet OpenPose (SD15)
