@@ -55,9 +55,10 @@ def download(fname):
     with urllib.request.urlopen(req, timeout=120) as r:
         return r.read()
 
-MODEL_REALVISXL = "realvisxl_v40.safetensors"
+MODEL_REALVISXL = "RealVisXL_V5.0_fp16.safetensors"
 MODEL_CREALISM = "crealism_v2.safetensors"
 MODEL_ILLUSTRIOUS = "illustrious_xl.safetensors"
+MODEL_JUGGERNAUT = "Juggernaut-XL_v9_RunDiffusionPhoto_v2.safetensors"
 
 # ── Illustrious-XL (만화 NSFW) 모델 보증 — 크기+헤더 내용 검증, 손상 시 새로 받기 ──
 # 배경: 부팅(startup.sh) 시 받은 파일이 "크기는 맞지만 내용 손상"이어서 ComfyUI 로드 실패

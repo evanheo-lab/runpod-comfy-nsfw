@@ -25,11 +25,17 @@ if [ -d /runpod-volume ]; then
 fi
 
 # ── 모델 다운로드 (볼륨/로컬에 없을 때만) ───────────────────
-# 실사 모델 = RealVisXL V4.0 (6.9GB 정상 checkpoint, 무검열 프롬프트로 처리)
-# (참고: samsmith47/photorealistic_nsfw_v2는 612MB 분할형 — checkpoint 아님, 2026-08-30 폐기)
-if [ ! -f $MODEL_ROOT/checkpoints/realvisxl_v40.safetensors ]; then
-  echo "[startup] RealVisXL 다운로드..."
-  curl -sL -o $MODEL_ROOT/checkpoints/realvisxl_v40.safetensors "https://huggingface.co/SG161222/RealVisXL_V4.0/resolve/main/RealVisXL_V4.0.safetensors" || true
+# 실사 모델 = RealVisXL V5.0 (fp16 6.9GB, 무검열 프롬프트로 처리) — 2026-09-09 V4.0→V5.0 교체
+if [ ! -f $MODEL_ROOT/checkpoints/RealVisXL_V5.0_fp16.safetensors ]; then
+  echo "[startup] RealVisXL V5.0 다운로드..."
+  curl -sL -o $MODEL_ROOT/checkpoints/RealVisXL_V5.0_fp16.safetensors "https://huggingface.co/SG161222/RealVisXL_V5.0/resolve/main/RealVisXL_V5.0_fp16.safetensors" || true
+fi
+
+# ── Juggernaut XL v9 (고퀄리티 실사 보조) — 2026-09-09 추가 ──
+# 출처: HF RunDiffusion/Juggernaut-XL-v9 (Civitai Juggernaut XL 계열, 실사·시네마틱 강점)
+if [ ! -f $MODEL_ROOT/checkpoints/Juggernaut-XL_v9_RunDiffusionPhoto_v2.safetensors ]; then
+  echo "[startup] Juggernaut XL v9 다운로드..."
+  curl -sL -o $MODEL_ROOT/checkpoints/Juggernaut-XL_v9_RunDiffusionPhoto_v2.safetensors "https://huggingface.co/RunDiffusion/Juggernaut-XL-v9/resolve/main/Juggernaut-XL_v9_RunDiffusionPhoto_v2.safetensors" || true
 fi
 
 # ── CreaLISM (NSFW 전용 SDXL) — 남성기·삽입 표현용 (2026-08-31 추가) ──
