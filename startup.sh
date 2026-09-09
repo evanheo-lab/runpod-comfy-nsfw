@@ -38,6 +38,14 @@ if [ ! -f $MODEL_ROOT/checkpoints/Juggernaut-XL_v9_RunDiffusionPhoto_v2.safetens
   curl -sL -o $MODEL_ROOT/checkpoints/Juggernaut-XL_v9_RunDiffusionPhoto_v2.safetensors "https://huggingface.co/RunDiffusion/Juggernaut-XL-v9/resolve/main/Juggernaut-XL_v9_RunDiffusionPhoto_v2.safetensors" || true
 fi
 
+# ── RealVisXL V4.0 (실사 NSFW 표현용 복귀) — 2026-09-09 추가 ──
+# 출처: HF SG161222/RealVisXL_V4.0 (V5.0은 정화 필터로 누드 표현 제한 → V4.0 복귀)
+# 기존 스크립트 호환을 위해 파일명 realvisxl_v40.safetensors 유지
+if [ ! -f $MODEL_ROOT/checkpoints/realvisxl_v40.safetensors ]; then
+  echo "[startup] RealVisXL V4.0 다운로드..."
+  curl -sL -o $MODEL_ROOT/checkpoints/realvisxl_v40.safetensors "https://huggingface.co/SG161222/RealVisXL_V4.0/resolve/main/RealVisXL_V4.0.safetensors" || true
+fi
+
 # ── CreaLISM (NSFW 전용 SDXL) — 남성기·삽입 표현용 (2026-08-31 추가) ──
 # 출처: Civitai model 1836368 (Terra Mirabilis PhotoRealistic NSFW SDXL), v2.0
 # Civitai 토큰은 엔드포인트 env(CIVITAI_TOKEN)로 주입됨
