@@ -157,6 +157,8 @@ def wf_single(prompt_info, input_name, seed, denoise, sim=None):
     ckpt = prompt_info.get("settings", {}).get("model", MODEL_REALVISXL)
     lora_pguy = float(sim.get("lora_pguy", 0.0))
     lora_segg = float(sim.get("lora_segg", 0.0))
+    lora_char = float(sim.get("lora_char", 0.0))                          # 캐릭터 LoRA 강도 (0=끔)
+    lora_char_name = sim.get("lora_char_name", "woman_1_001.safetensors") # 캐릭터 LoRA 파일
     wf = {
         "4": {"class_type": "CheckpointLoaderSimple", "inputs": {"ckpt_name": ckpt}},
         "5c": {"class_type": "LoadImage", "inputs": {"image": input_name}},
@@ -172,6 +174,10 @@ def wf_single(prompt_info, input_name, seed, denoise, sim=None):
         wf["1l2"] = {"class_type": "LoraLoader", "inputs": {"model": model_ref, "clip": clip_ref,
                       "lora_name": "segg_gesture_v2.safetensors", "strength_model": lora_segg, "strength_clip": lora_segg}}
         model_ref, clip_ref = ["1l2", 0], ["1l2", 1]
+    if lora_char > 0:
+        wf["1l3"] = {"class_type": "LoraLoader", "inputs": {"model": model_ref, "clip": clip_ref,
+                      "lora_name": lora_char_name, "strength_model": lora_char, "strength_clip": lora_char}}
+        model_ref, clip_ref = ["1l3", 0], ["1l3", 1]
     wf["7"] = {"class_type": "CLIPTextEncode", "inputs": {"text": prompt_info["positive"], "clip": clip_ref}}
     wf["8"] = {"class_type": "CLIPTextEncode", "inputs": {"text": prompt_info["negative"], "clip": clip_ref}}
     wf["10"] = {"class_type": "KSampler", "inputs": {"seed": seed, "steps": prompt_info["settings"].get("steps", 28),
@@ -194,11 +200,13 @@ def wf_3stage(prompt_info, input_name, seed, sim=None):
     # 성인 LoRA 강도 (0 = 끔, 기본 0.8)
     lora_pguy = float(sim.get("lora_pguy", 0.8))          # 남성/성기 표현
     lora_segg = float(sim.get("lora_segg", 0.8))          # 삽입 제스처
+    lora_char = float(sim.get("lora_char", 0.0))          # 캐릭터 LoRA 강도 (0=끔)
+    lora_char_name = sim.get("lora_char_name", "woman_1_001.safetensors")
     # 전신 비율 (세로) — prompt settings 기본값 사용
     width = int(prompt_info.get("settings", {}).get("width", 832))
     height = int(prompt_info.get("settings", {}).get("height", 1216))
     ckpt = prompt_info.get("settings", {}).get("model", MODEL_REALVISXL)
-    return {
+    wf = {
         "1": {"class_type": "CheckpointLoaderSimple", "inputs": {"ckpt_name": ckpt}},
         "2": {"class_type": "CheckpointLoaderSimple", "inputs": {"ckpt_name": ckpt}},
         # ★ 성인 LoRA 적용 (pguy + segg) — 있으면 적용, 없으면 원본 그대로
@@ -222,6 +230,14 @@ def wf_3stage(prompt_info, input_name, seed, sim=None):
         "13": {"class_type": "ReActorFaceSwap", "inputs": {"enabled": True, "input_image": ["11b", 0], "source_image": ["5", 0], "swap_model": "inswapper_128.onnx", "facedetection": "retinaface_resnet50", "face_restore_model": "GFPGANv1.4.pth", "visibility": rs_vis, "console_log_level": 1, "input_faces_index": "0", "source_faces_index": "0", "detect_gender_input": "no", "detect_gender_source": "no", "codeformer_weight": 0.5, "face_restore_visibility": 1.0}},
         "14": {"class_type": "SaveImage", "inputs": {"filename_prefix": "out", "images": ["13", 0]}},
     }
+    # ★ 캐릭터 LoRA (선택) — 0보다 크면 pguy/segg 체인 뒤에 삽입, 후속 노드 참조 재배선
+    if lora_char > 0:
+        wf["1l3"] = {"class_type": "LoraLoader", "inputs": {"model": ["1l2", 0], "clip": ["1l2", 1],
+                     "lora_name": lora_char_name, "strength_model": lora_char, "strength_clip": lora_char}}
+        wf["3"]["inputs"]["model"] = ["1l3", 0]
+        wf["7"]["inputs"]["clip"] = ["1l3", 1]
+        wf["8"]["inputs"]["clip"] = ["1l3", 1]
+    return wf
 
 def wf_inpaint(prompt_info, input_name, mask_name, seed):
     ckpt = prompt_info.get("settings", {}).get("model", MODEL_CREALISM)
